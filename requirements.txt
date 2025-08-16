@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+pydantic-ai
+pillow
+requests
+python-multipart
+torch
+torchvision
+transformers
+numpy
+opencv-python
+ultralytics

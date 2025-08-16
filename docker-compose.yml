@@ -1,0 +1,30 @@
+services:
+  # Servicio de Ollama
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    entrypoint: bash -c "ollama serve & pid=$!; sleep 5; ollama pull gemma3:4b; ollama pull qwen2.5vl:7b; wait $pid"
+    volumes:
+      - ollama_data:/root/.ollama
+    container_name: ollama
+
+  # Servicio de la API de FastAPI
+  fastapi_app:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ollama
+    env_file:
+      - .env
+    environment:
+      # Asegúrate de que la API pueda encontrar a Ollama
+      - OLLAMA_HOST=ollama
+      # Variables de entorno para APIs
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GCP_API_KEY=${GCP_API_KEY:-NONE}
+    container_name: fastapi_app
+
+volumes:
+  ollama_data:
