@@ -9,6 +9,6 @@ RUN --mount=type=cache,target=/root/.npm \
 
 COPY . .
 
-EXPOSE 3000
+EXPOSE 5173
 
 CMD ["npm", "run", "dev"]

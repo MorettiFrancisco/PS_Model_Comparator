@@ -1,9 +1,21 @@
 [project]
 name = "ps-model-comparator"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI Model Comparator with multimodal analysis"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "pydantic-ai",
+    "pillow",
+    "requests",
+    "python-multipart",
+    "torch",
+    "torchvision", 
+    "transformers",
     "numpy>=2.3.2",
+    "opencv-python",
+    "ultralytics",
 ]

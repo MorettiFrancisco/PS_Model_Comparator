@@ -8,8 +8,11 @@ services:
       - ollama_data:/root/.ollama
     container_name: ollama
 
-  fastapi_app:
-    build: .
+  backend:
+    container_name: ps_model_comparator_backend
+    build:
+      context: .
+      dockerfile: dockerfile
     ports:
       - "8000:8000"
     depends_on:
@@ -20,19 +23,40 @@ services:
       - OLLAMA_HOST=ollama
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - GCP_API_KEY=${GCP_API_KEY:-NONE}
-    container_name: fastapi_app
+    volumes:
+      - uv-cache:/root/.cache/uv
+    develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /app/app
+        - action: rebuild
+          path: ./pyproject.toml
 
   frontend:
+    container_name: ps_model_comparator_frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "5173:5173"
     depends_on:
-      - fastapi_app
-    container_name: frontend
+      - backend
     environment:
       - NODE_ENV=development
+    volumes:
+      - /app/node_modules
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend/src
+          target: /app/src
+        - action: sync
+          path: ./frontend/vite.config.js
+          target: /app/vite.config.js
+        - action: rebuild
+          path: ./frontend/package.json
 
 volumes:
   ollama_data:
+  uv-cache:

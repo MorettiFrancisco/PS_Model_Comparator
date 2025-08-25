@@ -4,11 +4,11 @@ import vue from "@vitejs/plugin-vue";
 export default defineConfig({
   plugins: [vue()],
   server: {
-    port: 3000,
+    port: 5173,
     host: true,
     proxy: {
       "/api": {
-        target: "http://fastapi_app:8000",
+        target: "http://backend:8000",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
