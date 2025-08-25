@@ -26,5 +26,18 @@ services:
       - GCP_API_KEY=${GCP_API_KEY:-NONE}
     container_name: fastapi_app
 
+  # Servicio del Frontend con Nginx
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - fastapi_app
+    container_name: frontend
+    environment:
+      - NODE_ENV=production
+
 volumes:
   ollama_data:

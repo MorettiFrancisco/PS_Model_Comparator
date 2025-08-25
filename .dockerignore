@@ -49,6 +49,12 @@ Thumbs.db
 
 # Docker
 .dockerignore
+Dockerfile
+docker-compose.yml
+
+# Frontend (no necesario en backend container)
+frontend/
+node_modules/
 
 # Archivos de prueba
 test_*.py
@@ -58,3 +64,15 @@ tests/
 # Archivos temporales
 *.tmp
 *.temp
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Documentación
+README.md
+ARCHITECTURE.md
+API_USAGE.md
+
+# Archivos de desarrollo
+.python-version
