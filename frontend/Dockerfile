@@ -1,22 +1,14 @@
-FROM node:18-alpine AS build-stage
+FROM node:24-alpine
 
 WORKDIR /app
 
 COPY package*.json ./
 
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci
+    npm install
 
 COPY . .
 
-RUN npm run build
+EXPOSE 3000
 
-FROM nginx:alpine
-
-COPY --from=build-stage /app/dist /usr/share/nginx/html
-
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npm", "run", "dev"]
