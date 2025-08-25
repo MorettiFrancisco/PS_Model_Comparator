@@ -1,5 +1,5 @@
 # Dockerfile para el frontend Vue.js
-FROM node:18-alpine
+FROM node:18-alpine as build-stage
 
 # Establece el directorio de trabajo
 WORKDIR /app
@@ -7,8 +7,9 @@ WORKDIR /app
 # Copia los archivos de dependencias primero (mejor cache)
 COPY package*.json ./
 
-# Instala las dependencias
-RUN npm ci
+# Instala las dependencias (sin --only=production para incluir devDependencies)
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 # Copia el resto del código fuente
 COPY . .
