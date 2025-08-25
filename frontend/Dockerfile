@@ -2,10 +2,10 @@ FROM node:24-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-
 RUN --mount=type=cache,target=/root/.npm \
-    npm install
+    --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=package-lock.json,target=package-lock.json \
+    npm ci
 
 COPY . .
 

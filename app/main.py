@@ -107,9 +107,94 @@ async def compare_models(
 
         print(f"🚀 Iniciando comparación con {len(models_config)} modelos...")
 
+        async def check_ollama_memory_status():
+            """Verifica el estado de memoria de Ollama"""
+            try:
+                import subprocess
+
+                result = subprocess.run(
+                    ["docker", "exec", "ollama", "ollama", "ps"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode == 0:
+                    lines = result.stdout.strip().split("\n")
+                    if len(lines) > 1:  # Hay modelos cargados
+                        print("📊 Modelos actualmente cargados en Ollama:")
+                        for line in lines[1:]:  # Skip header
+                            if line.strip():
+                                parts = line.split()
+                                if len(parts) >= 3:
+                                    print(f"   - {parts[0]}: {parts[2]} de memoria")
+                    else:
+                        print("✅ No hay modelos cargados en Ollama - memoria libre")
+            except Exception as e:
+                print(f"⚠️ No se pudo verificar el estado de memoria: {e}")
+
+        async def unload_ollama_models():
+            """Descarga todos los modelos de Ollama para liberar memoria"""
+            try:
+                import subprocess
+
+                # Primero intentar descargar todos los modelos
+                result = subprocess.run(
+                    ["docker", "exec", "ollama", "ollama", "stop", "--all"],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                if result.returncode == 0:
+                    print("🧹 Modelos de Ollama descargados para liberar memoria")
+                else:
+                    # Si falla, intentar descargar modelos específicos
+                    print("⚠️ Intentando descarga específica...")
+                    loaded_models = subprocess.run(
+                        ["docker", "exec", "ollama", "ollama", "ps"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    if loaded_models.returncode == 0:
+                        lines = loaded_models.stdout.strip().split("\n")[
+                            1:
+                        ]  # Skip header
+                        for line in lines:
+                            if line.strip():
+                                model_name = line.split()[0]
+                                subprocess.run(
+                                    [
+                                        "docker",
+                                        "exec",
+                                        "ollama",
+                                        "ollama",
+                                        "stop",
+                                        model_name,
+                                    ],
+                                    capture_output=True,
+                                    timeout=10,
+                                )
+                                print(f"🧹 Descargado modelo específico: {model_name}")
+            except Exception as e:
+                print(f"⚠️ No se pudieron descargar modelos de Ollama: {e}")
+
         for i, model_config in enumerate(models_config, 1):
             model_name = model_config.model_name or model_config.provider
             print(f"📊 Procesando modelo {i}/{len(models_config)}: {model_name}")
+
+            # Verificar estado de memoria antes de procesar
+            if model_config.provider == "ollama":
+                await check_ollama_memory_status()
+
+            # Si el modelo actual es de Ollama y hay modelos Ollama previos cargados, descargar primero
+            if model_config.provider == "ollama" and any(
+                result.provider == "ollama" and result.success for result in results
+            ):
+                print(f"🔄 Descargando modelos previos antes de cargar {model_name}...")
+                await unload_ollama_models()
+                await asyncio.sleep(
+                    3
+                )  # Esperar a que se libere la memoria completamente
 
             try:
                 result = await execute_model(model_config, image_base64, image_info)
@@ -129,7 +214,7 @@ async def compare_models(
                 )
                 results.append(error_result)
 
-            # Pequeña pausa entre modelos para evitar sobrecarga
+            # Pausa entre modelos para evitar sobrecarga
             await asyncio.sleep(0.5)
 
         total_execution_time = time.time() - total_start_time
@@ -249,22 +334,8 @@ async def compare_models(
         # Determinar ganador basado en puntuación combinada
         winner = max(metrics_summary, key=lambda x: x.overall_score)
 
-        # Generar recomendación mejorada
-        combined_recommendation = f"""
-🏆 **Ganador: {winner.model_name}** (Puntuación: {winner.overall_score:.1f}/10)
-
-📊 **Análisis Textual:** {text_recommendation}
-
-🖼️ **Análisis Multimodal:**
-- ITM Score: {winner.itm_score:.3f} (probabilidad de correspondencia imagen-texto)
-- Precisión de objetos: {winner.object_precision:.1%}
-- Tasa de alucinación: {winner.hallucination_rate:.1%}
-
-💡 **Fortalezas del ganador:**
-- Calidad de texto: {winner.quality_score:.1f}/10
-- Precisión multimodal: {winner.multimodal_score:.1f}/10
-- Velocidad: {winner.execution_time:.1f}s
-"""
+        # Generar recomendación simple
+        combined_recommendation = f"{winner.model_name} mostró un excelente rendimiento. Resultados de alta calidad."
 
         return ComparisonResponse(
             results=results,
