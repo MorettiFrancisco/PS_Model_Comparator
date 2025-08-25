@@ -38,6 +38,111 @@ class MultimodalMetricsAnalyzer(TextOnlyMetricsAnalyzer):
 
         # YOLO es opcional, usar detección básica como fallback
         self.yolo_model = None
+
+        # Lista de objetos comunes para detección por keywords
+        self.object_keywords = {
+            # Objetos de hogar
+            "casa",
+            "house",
+            "home",
+            "building",
+            "edificio",
+            "vivienda",
+            "puerta",
+            "door",
+            "ventana",
+            "window",
+            "techo",
+            "roof",
+            "tejado",
+            "jardín",
+            "garden",
+            "césped",
+            "grass",
+            "árbol",
+            "tree",
+            "planta",
+            "plant",
+            "flor",
+            "flower",
+            "rosa",
+            "rose",
+            "arbusto",
+            "bush",
+            # Vehículos
+            "coche",
+            "car",
+            "auto",
+            "automóvil",
+            "camión",
+            "truck",
+            "bicicleta",
+            "bike",
+            # Animales
+            "perro",
+            "dog",
+            "gato",
+            "cat",
+            "animal",
+            "pájaro",
+            "bird",
+            # Personas
+            "persona",
+            "person",
+            "gente",
+            "people",
+            "hombre",
+            "man",
+            "mujer",
+            "woman",
+            "niño",
+            "child",
+            "bebé",
+            "baby",
+            # Objetos comunes
+            "mesa",
+            "table",
+            "silla",
+            "chair",
+            "sofá",
+            "sofa",
+            "cama",
+            "bed",
+            "libro",
+            "book",
+            "teléfono",
+            "phone",
+            "computadora",
+            "computer",
+            # Colores (pueden ser objetos o propiedades)
+            "blanco",
+            "white",
+            "negro",
+            "black",
+            "rojo",
+            "red",
+            "azul",
+            "blue",
+            "verde",
+            "green",
+            "amarillo",
+            "yellow",
+            "gris",
+            "gray",
+            # Materiales
+            "madera",
+            "wood",
+            "metal",
+            "piedra",
+            "stone",
+            "cristal",
+            "glass",
+            "ladrillo",
+            "brick",
+            "cemento",
+            "concrete",
+        }
+
         print("ℹ️  Using keyword-based object detection (YOLO not available)")
 
     def compute_itm_score(self, image_path: str, caption: str) -> float:
@@ -118,23 +223,49 @@ class MultimodalMetricsAnalyzer(TextOnlyMetricsAnalyzer):
 
     def compute_object_metrics(self, image_path: str, caption: str) -> Dict[str, float]:
         """Calcula precisión/recall de objetos detectados vs mencionados"""
-        detected_objects = set()
 
-        # Por ahora usar detección básica por keywords (YOLO opcional)
+        # Convertir caption a minúsculas para búsqueda insensible a mayúsculas
         caption_lower = caption.lower()
-        detected_objects = {obj for obj in self.object_keywords if obj in caption_lower}
 
-        mentioned_objects = {
-            w for w in caption_lower.split() if w in self.object_keywords
-        }
+        # Encontrar objetos mencionados en el caption
+        mentioned_objects = set()
+        for obj in self.object_keywords:
+            if obj in caption_lower:
+                mentioned_objects.add(obj)
 
-        tp = len(detected_objects & mentioned_objects)
-        fp = len(mentioned_objects - detected_objects)
-        fn = len(detected_objects - mentioned_objects)
+        print("🔍 OBJECTS DEBUG:")
+        print(f"   Caption: '{caption[:100]}{'...' if len(caption) > 100 else ''}'")
+        print(f"   Mentioned objects: {mentioned_objects}")
 
-        precision = tp / (tp + fp + 1e-6)
-        recall = tp / (tp + fn + 1e-6)
-        halluc_rate = fp / (len(mentioned_objects) + 1e-6)
+        # Por ahora, asumimos que todos los objetos mencionados están "detectados"
+        # En una implementación real, usaríamos YOLO o similar para detectar objetos en la imagen
+        detected_objects = mentioned_objects.copy()  # Placeholder
+
+        # Calcular métricas
+        if len(mentioned_objects) == 0:
+            precision = 1.0  # No hay objetos mencionados, no hay errores
+            recall = 1.0
+            halluc_rate = 0.0
+        else:
+            tp = len(detected_objects & mentioned_objects)  # True positives
+            fp = len(
+                detected_objects - mentioned_objects
+            )  # False positives (alucinaciones)
+            fn = len(
+                mentioned_objects - detected_objects
+            )  # False negatives (objetos perdidos)
+
+            precision = tp / (tp + fp + 1e-6)
+            recall = tp / (tp + fn + 1e-6)
+            halluc_rate = (
+                fp / (len(detected_objects) + 1e-6)
+                if len(detected_objects) > 0
+                else 0.0
+            )
+
+        print(f"   Object precision: {precision:.3f}")
+        print(f"   Object recall: {recall:.3f}")
+        print(f"   Hallucination rate: {halluc_rate:.3f}")
 
         return {
             "object_precision": precision,
