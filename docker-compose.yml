@@ -1,5 +1,4 @@
 services:
-  # Servicio de Ollama
   ollama:
     image: ollama/ollama
     ports:
@@ -9,7 +8,6 @@ services:
       - ollama_data:/root/.ollama
     container_name: ollama
 
-  # Servicio de la API de FastAPI
   fastapi_app:
     build: .
     ports:
@@ -19,14 +17,11 @@ services:
     env_file:
       - .env
     environment:
-      # Asegúrate de que la API pueda encontrar a Ollama
       - OLLAMA_HOST=ollama
-      # Variables de entorno para APIs
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - GCP_API_KEY=${GCP_API_KEY:-NONE}
     container_name: fastapi_app
 
-  # Servicio del Frontend con Nginx
   frontend:
     build:
       context: ./frontend
