@@ -107,94 +107,13 @@ async def compare_models(
 
         print(f"🚀 Iniciando comparación con {len(models_config)} modelos...")
 
-        async def check_ollama_memory_status():
-            """Verifica el estado de memoria de Ollama"""
-            try:
-                import subprocess
-
-                result = subprocess.run(
-                    ["docker", "exec", "ollama", "ollama", "ps"],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                if result.returncode == 0:
-                    lines = result.stdout.strip().split("\n")
-                    if len(lines) > 1:  # Hay modelos cargados
-                        print("📊 Modelos actualmente cargados en Ollama:")
-                        for line in lines[1:]:  # Skip header
-                            if line.strip():
-                                parts = line.split()
-                                if len(parts) >= 3:
-                                    print(f"   - {parts[0]}: {parts[2]} de memoria")
-                    else:
-                        print("✅ No hay modelos cargados en Ollama - memoria libre")
-            except Exception as e:
-                print(f"⚠️ No se pudo verificar el estado de memoria: {e}")
-
-        async def unload_ollama_models():
-            """Descarga todos los modelos de Ollama para liberar memoria"""
-            try:
-                import subprocess
-
-                # Primero intentar descargar todos los modelos
-                result = subprocess.run(
-                    ["docker", "exec", "ollama", "ollama", "stop", "--all"],
-                    capture_output=True,
-                    text=True,
-                    timeout=15,
-                )
-                if result.returncode == 0:
-                    print("🧹 Modelos de Ollama descargados para liberar memoria")
-                else:
-                    # Si falla, intentar descargar modelos específicos
-                    print("⚠️ Intentando descarga específica...")
-                    loaded_models = subprocess.run(
-                        ["docker", "exec", "ollama", "ollama", "ps"],
-                        capture_output=True,
-                        text=True,
-                        timeout=10,
-                    )
-                    if loaded_models.returncode == 0:
-                        lines = loaded_models.stdout.strip().split("\n")[
-                            1:
-                        ]  # Skip header
-                        for line in lines:
-                            if line.strip():
-                                model_name = line.split()[0]
-                                subprocess.run(
-                                    [
-                                        "docker",
-                                        "exec",
-                                        "ollama",
-                                        "ollama",
-                                        "stop",
-                                        model_name,
-                                    ],
-                                    capture_output=True,
-                                    timeout=10,
-                                )
-                                print(f"🧹 Descargado modelo específico: {model_name}")
-            except Exception as e:
-                print(f"⚠️ No se pudieron descargar modelos de Ollama: {e}")
-
         for i, model_config in enumerate(models_config, 1):
             model_name = model_config.model_name or model_config.provider
             print(f"📊 Procesando modelo {i}/{len(models_config)}: {model_name}")
 
-            # Verificar estado de memoria antes de procesar
-            if model_config.provider == "ollama":
-                await check_ollama_memory_status()
-
-            # Si el modelo actual es de Ollama y hay modelos Ollama previos cargados, descargar primero
-            if model_config.provider == "ollama" and any(
-                result.provider == "ollama" and result.success for result in results
-            ):
-                print(f"🔄 Descargando modelos previos antes de cargar {model_name}...")
-                await unload_ollama_models()
-                await asyncio.sleep(
-                    3
-                )  # Esperar a que se libere la memoria completamente
+            # Pausa breve entre modelos para gestión de memoria
+            if i > 1:
+                await asyncio.sleep(2)
 
             try:
                 result = await execute_model(model_config, image_base64, image_info)
@@ -237,10 +156,20 @@ async def compare_models(
 
         try:
             # Crear analizador multimodal solo cuando se necesite
-            from .metrics import MultimodalMetricsAnalyzer
+            from .metrics.multimodal_metrics import MultimodalMetrics
 
-            multimodal_analyzer = MultimodalMetricsAnalyzer()
+            multimodal_analyzer = MultimodalMetrics()
 
+            # Generar referencias UNA VEZ basadas en la imagen (compartidas por todos los modelos)
+            print("🔍 DEBUG: Generando referencias únicas basadas en imagen...")
+            shared_references = multimodal_analyzer.generate_image_references(
+                temp_image_path, num_references=5
+            )
+            print(
+                f"🔍 DEBUG: Referencias compartidas generadas: {shared_references[:3]}..."
+            )
+
+            # Procesar métricas para todos los modelos usando las mismas referencias
             for result in results:
                 if result.success:
                     try:
@@ -251,29 +180,44 @@ async def compare_models(
                             else str(result.response)
                         )
 
-                        mm_metrics = multimodal_analyzer.analyze_multimodal(
-                            temp_image_path, response_text
+                        print(
+                            f"🔍 DEBUG: Calculando métricas para {result.model_name}..."
                         )
+                        print(f"🔍 DEBUG: Respuesta: {response_text[:100]}...")
+
+                        # Calcular métricas usando referencias compartidas
+                        mm_metrics = multimodal_analyzer.compute_all_optimized(
+                            temp_image_path,
+                            response_text,
+                            shared_references,  # Usar referencias compartidas
+                        )
+
+                        # Debug: mostrar resultados de métricas
+                        print(f"🔍 DEBUG: Métricas para {result.model_name}:")
+                        print(f"🔍 DEBUG:   ITM Score: {mm_metrics.itm_score:.4f}")
+                        print()
+
                         multimodal_results[result.model_name] = {
                             "itm_score": mm_metrics.itm_score,
-                            "object_precision": mm_metrics.object_precision,
-                            "object_recall": mm_metrics.object_recall,
-                            "hallucination_rate": mm_metrics.hallucination_rate,
-                            "robustness_score": mm_metrics.robustness_score,
-                            "safety_flag": mm_metrics.safety_flag,
                         }
+
+                        # Liberar memoria después de cada modelo
+                        multimodal_analyzer._cleanup_memory()
+
                     except Exception as e:
                         print(
                             f"Error en métricas multimodales para {result.model_name}: {e}"
                         )
                         multimodal_results[result.model_name] = {
                             "itm_score": 0.0,
-                            "object_precision": 0.0,
-                            "object_recall": 0.0,
-                            "hallucination_rate": 1.0,
-                            "robustness_score": 0.0,
-                            "safety_flag": True,
                         }
+
+            # Limpieza final agresiva
+            print("🔍 DEBUG: Limpieza final de memoria...")
+            del multimodal_analyzer
+            import gc
+
+            gc.collect()
         except Exception as e:
             print(f"Error inicializando analizador multimodal: {e}")
             # Si no se puede inicializar, usar valores por defecto para todos
@@ -281,11 +225,6 @@ async def compare_models(
                 if result.success:
                     multimodal_results[result.model_name] = {
                         "itm_score": 0.0,
-                        "object_precision": 0.0,
-                        "object_recall": 0.0,
-                        "hallucination_rate": 1.0,
-                        "robustness_score": 0.0,
-                        "safety_flag": True,
                     }
 
         # Limpiar archivo temporal
@@ -299,12 +238,8 @@ async def compare_models(
         for model_name, model_metrics in text_comparison.metrics_by_model.items():
             mm_data = multimodal_results.get(model_name, {})
 
-            # Calcular puntuación multimodal combinada
-            multimodal_score = (
-                mm_data.get("itm_score", 0) * 0.4
-                + mm_data.get("object_precision", 0) * 0.3
-                + (1 - mm_data.get("hallucination_rate", 1)) * 0.3
-            ) * 10  # Escalar a 0-10
+            # Calcular puntuación multimodal simplificada (solo ITM score)
+            multimodal_score = mm_data.get("itm_score", 0) * 10  # Escalar a 0-10
 
             # Puntuación final combinada (70% texto, 30% multimodal)
             combined_score = (model_metrics.overall_score * 0.7) + (
@@ -320,14 +255,10 @@ async def compare_models(
                     quality_score=model_metrics.quality_score,
                     word_count=model_metrics.word_count,
                     has_detailed_description=model_metrics.has_detailed_description,
-                    uses_spanish=model_metrics.uses_spanish,
+                    uses_english=model_metrics.uses_english,
                     overall_score=combined_score,
-                    # Métricas multimodales
+                    # Solo ITM score como métrica multimodal
                     itm_score=mm_data.get("itm_score", 0.0),
-                    object_precision=mm_data.get("object_precision", 0.0),
-                    object_recall=mm_data.get("object_recall", 0.0),
-                    hallucination_rate=mm_data.get("hallucination_rate", 1.0),
-                    multimodal_score=multimodal_score,
                 )
             )
 

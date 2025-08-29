@@ -28,7 +28,7 @@ class ModelMetrics:
     mentions_actions: bool
 
     # Métricas de idioma y estructura
-    uses_spanish: bool
+    uses_english: bool
     well_structured: bool
     has_specific_details: bool
 
@@ -54,100 +54,120 @@ class ModelMetricsAnalyzer:
     """Analizador de métricas para modelos de IA"""
 
     def __init__(self):
-        self.spanish_indicators = [
-            "es",
-            "la",
-            "el",
-            "de",
-            "que",
-            "y",
-            "en",
-            "un",
-            "una",
-            "con",
-            "se",
-            "por",
-            "imagen",
-            "muestra",
-            "vemos",
-            "aparece",
-            "contiene",
-            "presenta",
+        # Updated for English language analysis
+        self.english_indicators = [
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+            "from",
+            "this",
+            "that",
+            "image",
+            "shows",
+            "contains",
+            "displays",
+            "features",
+            "depicts",
         ]
 
         self.color_keywords = [
-            "rojo",
-            "azul",
-            "verde",
-            "amarillo",
-            "negro",
-            "blanco",
-            "gris",
-            "rosa",
-            "morado",
-            "naranja",
-            "marrón",
-            "violeta",
+            "red",
+            "blue",
+            "green",
+            "yellow",
+            "black",
+            "white",
+            "gray",
+            "grey",
+            "pink",
+            "purple",
+            "orange",
+            "brown",
+            "violet",
             "color",
-            "colores",
+            "colors",
+            "colored",
         ]
 
         self.object_keywords = [
-            "objeto",
-            "mesa",
-            "silla",
-            "coche",
-            "casa",
-            "árbol",
-            "flor",
+            "object",
+            "table",
+            "chair",
+            "car",
+            "house",
+            "tree",
+            "flower",
             "animal",
-            "libro",
-            "computadora",
-            "teléfono",
-            "botella",
-            "caja",
-            "edificio",
+            "book",
+            "computer",
+            "phone",
+            "bottle",
+            "box",
+            "building",
+            "vehicle",
+            "booth",
+            "toll",
+            "gate",
+            "sign",
+            "road",
+            "lane",
         ]
 
         self.people_keywords = [
-            "persona",
-            "hombre",
-            "mujer",
-            "niño",
-            "niña",
-            "gente",
-            "rostro",
-            "cara",
-            "personas",
-            "figura",
-            "humano",
-            "individuo",
+            "person",
+            "man",
+            "woman",
+            "child",
+            "boy",
+            "girl",
+            "people",
+            "face",
+            "human",
+            "individual",
+            "figure",
+            "driver",
+            "worker",
         ]
 
         self.text_keywords = [
-            "texto",
-            "letras",
-            "palabras",
-            "escrito",
-            "escribir",
-            "título",
-            "cartel",
-            "señal",
-            "etiqueta",
-            "mensaje",
+            "text",
+            "letters",
+            "words",
+            "written",
+            "writing",
+            "title",
+            "sign",
+            "poster",
+            "label",
+            "message",
+            "inscription",
         ]
 
         self.action_keywords = [
-            "camina",
-            "corre",
-            "saltando",
-            "moviendo",
-            "haciendo",
-            "realizando",
-            "ejecutando",
-            "trabajando",
-            "jugando",
-            "comiendo",
+            "walking",
+            "running",
+            "jumping",
+            "moving",
+            "doing",
+            "performing",
+            "working",
+            "playing",
+            "eating",
+            "standing",
+            "sitting",
+            "waiting",
+            "driving",
         ]
 
     def analyze_content_quality(self, response: str) -> Dict[str, Any]:
@@ -173,13 +193,12 @@ class ModelMetricsAnalyzer:
             "mentions_actions": any(
                 action in response_lower for action in self.action_keywords
             ),
-            "uses_spanish": sum(
-                1 for word in self.spanish_indicators if word in response_lower
+            "uses_english": sum(
+                1 for word in self.english_indicators if word in response_lower
             )
             > 3,
             "has_detailed_description": len(words) > 20,
-            "well_structured": len(sentences) > 2
-            and not response.startswith("Lo siento"),
+            "well_structured": len(sentences) > 2 and not response.startswith("Sorry"),
             "has_specific_details": any(
                 keyword in response_lower
                 for keyword in self.color_keywords
@@ -206,7 +225,7 @@ class ModelMetricsAnalyzer:
             score += 2.0
         if content_metrics["well_structured"]:
             score += 2.0
-        if content_metrics["uses_spanish"]:
+        if content_metrics["uses_english"]:
             score += 1.5
         if content_metrics["has_specific_details"]:
             score += 1.5
@@ -267,7 +286,7 @@ class ModelMetricsAnalyzer:
                 mentions_people=False,
                 mentions_text=False,
                 mentions_actions=False,
-                uses_spanish=False,
+                uses_english=False,
                 well_structured=False,
                 has_specific_details=False,
                 quality_score=0.0,
@@ -307,7 +326,7 @@ class ModelMetricsAnalyzer:
             mentions_people=content_metrics["mentions_people"],
             mentions_text=content_metrics["mentions_text"],
             mentions_actions=content_metrics["mentions_actions"],
-            uses_spanish=content_metrics["uses_spanish"],
+            uses_english=content_metrics["uses_english"],
             well_structured=content_metrics["well_structured"],
             has_specific_details=content_metrics["has_specific_details"],
             quality_score=quality_score,

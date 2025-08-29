@@ -178,10 +178,10 @@
               <span
                 class="metric-item"
                 :class="{
-                  active: getModelMetrics(result.model_name).uses_spanish,
+                  active: getModelMetrics(result.model_name).uses_english,
                 }"
               >
-                🇪🇸 Español
+                🇺🇸 English
               </span>
               <span
                 class="metric-item"
@@ -235,57 +235,19 @@
                     }}
                   </span>
                 </div>
-                <div class="multimodal-metric">
-                  <span class="metric-label">Precisión Objetos:</span>
-                  <span
-                    class="metric-value"
-                    :class="
-                      getPrecisionClass(
-                        getModelMetrics(result.model_name).object_precision
-                      )
-                    "
-                  >
-                    {{
-                      (
-                        getModelMetrics(result.model_name).object_precision *
-                        100
-                      ).toFixed(1)
-                    }}%
-                  </span>
+              </div>
+
+              <!-- Solo ITM Score para multimodal -->
+              <div class="multimodal-metric">
+                <div class="metric-header">
+                  <span class="metric-label">🔗 ITM Score</span>
+                  <span class="metric-description">Image-Text Matching</span>
                 </div>
-                <div class="multimodal-metric">
-                  <span class="metric-label">Tasa Alucinación:</span>
-                  <span
-                    class="metric-value"
-                    :class="
-                      getHallucinationClass(
-                        getModelMetrics(result.model_name).hallucination_rate
-                      )
-                    "
-                  >
+                <div class="metric-details">
+                  <span class="metric-value detailed">
                     {{
-                      (
-                        getModelMetrics(result.model_name).hallucination_rate *
-                        100
-                      ).toFixed(1)
-                    }}%
-                  </span>
-                </div>
-                <div class="multimodal-metric">
-                  <span class="metric-label">Score Multimodal:</span>
-                  <span
-                    class="metric-value score-badge"
-                    :class="
-                      getScoreClass(
-                        getModelMetrics(result.model_name).multimodal_score
-                      )
-                    "
-                  >
-                    {{
-                      getModelMetrics(
-                        result.model_name
-                      ).multimodal_score.toFixed(1)
-                    }}/10
+                      getModelMetrics(result.model_name).itm_score.toFixed(3)
+                    }}
                   </span>
                 </div>
               </div>
@@ -461,21 +423,6 @@ export default {
       if (score >= 0.8) return "score-excellent";
       if (score >= 0.6) return "score-good";
       if (score >= 0.4) return "score-fair";
-      return "score-poor";
-    },
-
-    getPrecisionClass(precision) {
-      if (precision >= 0.8) return "score-excellent";
-      if (precision >= 0.6) return "score-good";
-      if (precision >= 0.4) return "score-fair";
-      return "score-poor";
-    },
-
-    getHallucinationClass(rate) {
-      // Inverso: menor tasa de alucinación es mejor
-      if (rate <= 0.2) return "score-excellent";
-      if (rate <= 0.4) return "score-good";
-      if (rate <= 0.6) return "score-fair";
       return "score-poor";
     },
 

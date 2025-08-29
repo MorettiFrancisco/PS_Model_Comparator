@@ -36,16 +36,12 @@ class ModelMetricsSummary(BaseModel):
     quality_score: float
     word_count: int
     has_detailed_description: bool
-    uses_spanish: bool
+    uses_english: bool
 
-    # Métricas multimodales
-    itm_score: float = 0.0  # Cambiado de clip_score a itm_score
-    object_precision: float = 0.0
-    object_recall: float = 0.0
-    hallucination_rate: float = 1.0
-    multimodal_score: float = 0.0
+    # Métricas multimodales - Solo ITM Score
+    itm_score: float = 0.0
 
-    # Puntuación final combinada
+    # Puntuación final combinada (basada solo en métricas de texto + ITM)
     overall_score: float
 
 

@@ -1,291 +1,149 @@
-from typing import Dict
+from typing import Dict, List, Any
 from dataclasses import dataclass
-from .text_analyze_metric import ModelMetricsAnalyzer as TextOnlyMetricsAnalyzer
 import torch
-from PIL import Image
+import gc
 from transformers import BlipProcessor, BlipForImageTextRetrieval
+from PIL import Image
 
 
 @dataclass
+class MultimodalModelMetrics:
+    """Métricas detalladas de un modelo multimodal - Solo ITM Score"""
+
+    itm_score: float = 0.0
+
+
 class MultimodalMetrics:
-    itm_score: float  # Cambiado de clip_score a itm_score
-    object_precision: float
-    object_recall: float
-    hallucination_rate: float
-    robustness_score: float
-    safety_flag: bool
+    def __init__(self):
+        # Solo modelos BLIP para ITM
+        self.blip_processor = None
+        self.blip_model = None
 
+        # Device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-class MultimodalMetricsAnalyzer(TextOnlyMetricsAnalyzer):
-    def __init__(self, device=None):
-        super().__init__()
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-
-        try:
-            # Cargar BLIP-ITM base model
-            model_name = "Salesforce/blip-itm-base-coco"
-            self.blip_processor = BlipProcessor.from_pretrained(model_name)
-            self.blip_model = BlipForImageTextRetrieval.from_pretrained(model_name)
-            self.blip_model.to(self.device)
-            self.blip_model.eval()
-            print(
-                f"✅ BLIP-ITM model {model_name} loaded successfully on {self.device}"
+    def _load_blip_models(self):
+        """Carga los modelos BLIP bajo demanda"""
+        if self.blip_processor is None or self.blip_model is None:
+            print("[DEBUG] Cargando modelos BLIP...")
+            self.blip_processor = BlipProcessor.from_pretrained(
+                "Salesforce/blip-itm-base-coco"
             )
-        except Exception as e:
-            print(f"⚠️  Warning: No se pudo cargar BLIP-ITM: {e}")
-            self.blip_processor = None
+            self.blip_model = BlipForImageTextRetrieval.from_pretrained(
+                "Salesforce/blip-itm-base-coco"
+            ).to(self.device)
+            print("[DEBUG] Modelos BLIP cargados correctamente")
+
+    def _unload_blip_models(self):
+        """Libera los modelos BLIP de memoria"""
+        if self.blip_model is not None:
+            self.blip_model.cpu()  # Mover a CPU primero
+            del self.blip_model
             self.blip_model = None
 
-        # YOLO es opcional, usar detección básica como fallback
-        self.yolo_model = None
+        if self.blip_processor is not None:
+            del self.blip_processor
+            self.blip_processor = None
 
-        # Lista de objetos comunes para detección por keywords
-        self.object_keywords = {
-            # Objetos de hogar
-            "casa",
-            "house",
-            "home",
-            "building",
-            "edificio",
-            "vivienda",
-            "puerta",
-            "door",
-            "ventana",
-            "window",
-            "techo",
-            "roof",
-            "tejado",
-            "jardín",
-            "garden",
-            "césped",
-            "grass",
-            "árbol",
-            "tree",
-            "planta",
-            "plant",
-            "flor",
-            "flower",
-            "rosa",
-            "rose",
-            "arbusto",
-            "bush",
-            # Vehículos
-            "coche",
-            "car",
-            "auto",
-            "automóvil",
-            "camión",
-            "truck",
-            "bicicleta",
-            "bike",
-            # Animales
-            "perro",
-            "dog",
-            "gato",
-            "cat",
-            "animal",
-            "pájaro",
-            "bird",
-            # Personas
-            "persona",
-            "person",
-            "gente",
-            "people",
-            "hombre",
-            "man",
-            "mujer",
-            "woman",
-            "niño",
-            "child",
-            "bebé",
-            "baby",
-            # Objetos comunes
-            "mesa",
-            "table",
-            "silla",
-            "chair",
-            "sofá",
-            "sofa",
-            "cama",
-            "bed",
-            "libro",
-            "book",
-            "teléfono",
-            "phone",
-            "computadora",
-            "computer",
-            # Colores (pueden ser objetos o propiedades)
-            "blanco",
-            "white",
-            "negro",
-            "black",
-            "rojo",
-            "red",
-            "azul",
-            "blue",
-            "verde",
-            "green",
-            "amarillo",
-            "yellow",
-            "gris",
-            "gray",
-            # Materiales
-            "madera",
-            "wood",
-            "metal",
-            "piedra",
-            "stone",
-            "cristal",
-            "glass",
-            "ladrillo",
-            "brick",
-            "cemento",
-            "concrete",
-        }
+    def _cleanup_memory(self):
+        """Limpieza general de memoria"""
+        print("[DEBUG] Liberando memoria...")
 
-        print("ℹ️  Using keyword-based object detection (YOLO not available)")
+        # Liberar modelos BLIP
+        self._unload_blip_models()
+
+        # Limpieza de PyTorch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+
+        # Garbage collection
+        gc.collect()
+        gc.collect()
+        gc.collect()
+
+        print("[DEBUG] Memoria liberada")
 
     def compute_itm_score(self, image_path: str, caption: str) -> float:
-        """Calcula el score ITM (Image-Text Matching) con BLIP"""
-        if not self.blip_model or not self.blip_processor:
-            return 0.5  # Score neutro si BLIP no está disponible
-
+        """
+        Calcula ITM score (imagen-texto matching) usando BLIP.
+        """
         try:
-            print("🔍 BLIP-ITM DEBUG:")
-            print(f"   Caption length: {len(caption)} chars")
-            print(f"   Caption: '{caption[:100]}{'...' if len(caption) > 100 else ''}'")
+            print(f"[DEBUG][ITM] Calculando ITM score para: {caption[:50]}...")
 
-            # Cargar y procesar la imagen
+            # Cargar modelos BLIP
+            self._load_blip_models()
+
+            # Procesar imagen y texto
             image = Image.open(image_path).convert("RGB")
-
-            # Procesar imagen y texto (BLIP puede manejar hasta 512 tokens)
-            inputs = self.blip_processor(
-                images=image,
-                text=caption,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=512,
+            inputs = self.blip_processor(image, caption, return_tensors="pt").to(
+                self.device
             )
-
-            # Mover inputs al dispositivo
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
             with torch.no_grad():
-                # Obtener outputs del modelo BLIP-ITM
                 outputs = self.blip_model(**inputs)
 
-                # Debug: ver qué atributos tiene el output
-                print(f"   Output type: {type(outputs)}")
-                print(
-                    f"   Output attributes: {[attr for attr in dir(outputs) if not attr.startswith('_')]}"
-                )
-
-                # Intentar diferentes formas de acceder a los scores
-                if hasattr(outputs, "itm_score"):
-                    itm_tensor = outputs.itm_score
-                    print(f"   ITM tensor shape: {itm_tensor.shape}")
-                    print(f"   ITM tensor values: {itm_tensor}")
-
-                    # El tensor tiene 2 elementos [no_match_logit, match_logit]
-                    # Aplicar softmax para obtener probabilidades
-                    itm_probs = torch.softmax(itm_tensor, dim=-1)
-                    # La probabilidad de match está en el índice [0, 1] (primera fila, segunda columna)
-                    match_prob = itm_probs[0, 1].item()
-                elif hasattr(outputs, "logits"):
-                    # Aplicar softmax para obtener probabilidades
-                    itm_probs = torch.softmax(outputs.logits, dim=1)
-                    # La probabilidad de match está en el índice 1
-                    match_prob = itm_probs[0][1].item()
-                elif hasattr(outputs, "prediction_scores"):
-                    # Algunos modelos BLIP usan prediction_scores
-                    logits = outputs.prediction_scores
-                    probs = torch.softmax(logits, dim=-1)
-                    match_prob = (
-                        probs[0][1].item()
-                        if probs.shape[-1] > 1
-                        else probs[0][0].item()
-                    )
-                elif hasattr(outputs, "last_hidden_state"):
-                    # Fallback: usar el estado oculto como proxy
-                    hidden_state = outputs.last_hidden_state
-                    match_prob = torch.sigmoid(hidden_state.mean()).item()
+            # Calcular score
+            if hasattr(outputs, "itm_score") and outputs.itm_score is not None:
+                itm_tensor = outputs.itm_score
+                if itm_tensor.numel() > 1:
+                    match_prob = torch.sigmoid(itm_tensor[0]).item()
                 else:
-                    print("   Warning: No se encontró score válido, usando 0.5")
-                    match_prob = 0.5
+                    match_prob = torch.sigmoid(itm_tensor).item()
+            elif hasattr(outputs, "logits") and outputs.logits is not None:
+                itm_probs = torch.softmax(outputs.logits, dim=1)
+                match_prob = itm_probs[0][1].item()
+            else:
+                match_prob = 0.5
 
-            print(f"   ITM match probability: {match_prob:.4f}")
-            return match_prob
+            print(f"[DEBUG][ITM] Score calculado: {match_prob:.4f}")
+            return float(match_prob)
 
         except Exception as e:
-            print(f"Error calculando ITM score: {e}")
+            print(f"[ERROR][ITM Score] {e}")
+            import traceback
+
+            print(f"[ERROR][ITM Score] Traceback: {traceback.format_exc()}")
             return 0.0
+        finally:
+            # Liberar modelos después de usar
+            self._unload_blip_models()
+            self._cleanup_memory()
 
-    def compute_object_metrics(self, image_path: str, caption: str) -> Dict[str, float]:
-        """Calcula precisión/recall de objetos detectados vs mencionados"""
+    def compute_all_optimized(
+        self, image_path: str, caption: str, references: List[str] | None = None
+    ) -> MultimodalModelMetrics:
+        """
+        Calcula solo ITM score - versión simplificada sin otros modelos.
+        """
+        try:
+            print(f"[DEBUG] Calculando solo ITM score para: {caption[:50]}...")
 
-        # Convertir caption a minúsculas para búsqueda insensible a mayúsculas
-        caption_lower = caption.lower()
+            # Solo calcular ITM score
+            itm_score = self.compute_itm_score(image_path, caption)
 
-        # Encontrar objetos mencionados en el caption
-        mentioned_objects = set()
-        for obj in self.object_keywords:
-            if obj in caption_lower:
-                mentioned_objects.add(obj)
+            print(f"[DEBUG] ITM Score final: {itm_score:.4f}")
 
-        print("🔍 OBJECTS DEBUG:")
-        print(f"   Caption: '{caption[:100]}{'...' if len(caption) > 100 else ''}'")
-        print(f"   Mentioned objects: {mentioned_objects}")
+            return MultimodalModelMetrics(itm_score=float(itm_score))
 
-        # Por ahora, asumimos que todos los objetos mencionados están "detectados"
-        # En una implementación real, usaríamos YOLO o similar para detectar objetos en la imagen
-        detected_objects = mentioned_objects.copy()  # Placeholder
+        except Exception as e:
+            print(f"[ERROR][Compute All Optimized] {e}")
+            import traceback
 
-        # Calcular métricas
-        if len(mentioned_objects) == 0:
-            precision = 1.0  # No hay objetos mencionados, no hay errores
-            recall = 1.0
-            halluc_rate = 0.0
-        else:
-            tp = len(detected_objects & mentioned_objects)  # True positives
-            fp = len(
-                detected_objects - mentioned_objects
-            )  # False positives (alucinaciones)
-            fn = len(
-                mentioned_objects - detected_objects
-            )  # False negatives (objetos perdidos)
+            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            return MultimodalModelMetrics()
 
-            precision = tp / (tp + fp + 1e-6)
-            recall = tp / (tp + fn + 1e-6)
-            halluc_rate = (
-                fp / (len(detected_objects) + 1e-6)
-                if len(detected_objects) > 0
-                else 0.0
-            )
-
-        print(f"   Object precision: {precision:.3f}")
-        print(f"   Object recall: {recall:.3f}")
-        print(f"   Hallucination rate: {halluc_rate:.3f}")
-
-        return {
-            "object_precision": precision,
-            "object_recall": recall,
-            "hallucination_rate": halluc_rate,
-        }
-
-    def analyze_multimodal(self, image_path: str, caption: str) -> MultimodalMetrics:
-        itm_score = self.compute_itm_score(image_path, caption)
-        obj_metrics = self.compute_object_metrics(image_path, caption)
-
-        # Placeholder de robustez y seguridad
-        robustness_score = 1.0
-        safety_flag = False
-
-        return MultimodalMetrics(
-            itm_score=itm_score,
-            object_precision=obj_metrics["object_precision"],
-            object_recall=obj_metrics["object_recall"],
-            hallucination_rate=obj_metrics["hallucination_rate"],
-            robustness_score=robustness_score,
-            safety_flag=safety_flag,
-        )
+    def generate_image_references(
+        self, image_path: str, num_references: int = 5
+    ) -> List[str]:
+        """
+        Genera referencias simples sin usar modelos adicionales.
+        """
+        # Referencias genéricas para mantener compatibilidad
+        return [
+            "A detailed view of various visual elements",
+            "A composition with multiple distinguishable features",
+            "A scene with clearly visible objects and details",
+            "An image containing recognizable elements",
+            "A photograph with distinct visual components",
+        ][:num_references]

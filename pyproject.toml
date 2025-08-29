@@ -13,7 +13,7 @@ dependencies = [
     "requests",
     "python-multipart",
     "torch",
-    "torchvision", 
+    "torchvision",
     "transformers",
     "numpy>=2.3.2",
     "opencv-python",
