@@ -76,12 +76,12 @@ class MultimodalMetrics:
             with torch.no_grad():
                 outputs = self.blip_model(**inputs)
 
-            # BLIP ITM usa logits [no_match, match]
-            itm_probs = torch.softmax(outputs.logits, dim=1)
-            match_prob = itm_probs[0][1].item()
+            # BLIP ITM proporciona itm_score como tensor [batch_size, 2]
+            # [no_match_score, match_score] - tomamos el match score (índice 1)
+            itm_score = outputs.itm_score[0][1].item()
 
-            print(f"[DEBUG][ITM] Score calculado: {match_prob:.4f}")
-            return float(match_prob)
+            print(f"[DEBUG][ITM] Score calculado: {itm_score:.4f}")
+            return float(itm_score)
 
         except Exception as e:
             print(f"[ERROR][ITM Score] {e}")
