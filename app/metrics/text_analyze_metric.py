@@ -1,5 +1,5 @@
-from typing import Dict, List, Any
 from dataclasses import dataclass
+from typing import Dict, List, Any
 from ..models import ModelResponse
 
 
@@ -32,6 +32,9 @@ class ModelMetrics:
     well_structured: bool
     has_specific_details: bool
 
+    # Multimodal
+    itm_score: float  # <-- nuevo campo
+
     # Puntuación general
     quality_score: float
     overall_score: float
@@ -51,225 +54,157 @@ class ComparisonMetrics:
 
 
 class ModelMetricsAnalyzer:
-    """Analizador de métricas para modelos de IA"""
-
     def __init__(self):
-        # Updated for English language analysis
-        self.english_indicators = [
-            "the",
-            "a",
-            "an",
-            "and",
-            "or",
-            "but",
-            "in",
-            "on",
-            "at",
-            "to",
-            "for",
-            "of",
-            "with",
-            "by",
-            "from",
-            "this",
-            "that",
-            "image",
-            "shows",
-            "contains",
-            "displays",
-            "features",
-            "depicts",
-        ]
-
-        self.color_keywords = [
-            "red",
-            "blue",
-            "green",
-            "yellow",
-            "black",
-            "white",
-            "gray",
-            "grey",
-            "pink",
-            "purple",
-            "orange",
-            "brown",
-            "violet",
-            "color",
-            "colors",
-            "colored",
-        ]
-
-        self.object_keywords = [
-            "object",
-            "table",
-            "chair",
-            "car",
-            "house",
-            "tree",
-            "flower",
-            "animal",
-            "book",
-            "computer",
-            "phone",
-            "bottle",
-            "box",
-            "building",
-            "vehicle",
-            "booth",
-            "toll",
-            "gate",
-            "sign",
-            "road",
-            "lane",
-        ]
-
-        self.people_keywords = [
+        # Palabras clave organizadas en categorías
+        self.color_keywords = {"red", "blue", "green", "yellow", "black", "white"}
+        self.object_keywords = {"dog", "cat", "car", "tree", "person", "sign"}
+        self.people_keywords = {
             "person",
+            "people",
             "man",
             "woman",
             "child",
             "boy",
             "girl",
-            "people",
-            "face",
             "human",
-            "individual",
-            "figure",
-            "driver",
-            "worker",
-        ]
-
-        self.text_keywords = [
-            "text",
-            "letters",
-            "words",
-            "written",
-            "writing",
-            "title",
-            "sign",
-            "poster",
-            "label",
-            "message",
-            "inscription",
-        ]
-
-        self.action_keywords = [
-            "walking",
+        }
+        self.action_keywords = {
             "running",
+            "walking",
+            "sitting",
+            "standing",
             "jumping",
-            "moving",
-            "doing",
-            "performing",
-            "working",
             "playing",
             "eating",
-            "standing",
-            "sitting",
-            "waiting",
-            "driving",
-        ]
-
-    def analyze_content_quality(self, response: str) -> Dict[str, Any]:
-        """Analiza la calidad del contenido de la respuesta"""
-        response_lower = response.lower()
-        words = response_lower.split()
-        sentences = response.split(".")
-
-        return {
-            "response_length": len(response),
-            "word_count": len(words),
-            "sentence_count": len([s for s in sentences if s.strip()]),
-            "mentions_colors": any(
-                color in response_lower for color in self.color_keywords
-            ),
-            "mentions_objects": any(
-                obj in response_lower for obj in self.object_keywords
-            ),
-            "mentions_people": any(
-                person in response_lower for person in self.people_keywords
-            ),
-            "mentions_text": any(text in response_lower for text in self.text_keywords),
-            "mentions_actions": any(
-                action in response_lower for action in self.action_keywords
-            ),
-            "uses_english": sum(
-                1 for word in self.english_indicators if word in response_lower
-            )
-            > 3,
-            "has_detailed_description": len(words) > 20,
-            "well_structured": len(sentences) > 2 and not response.startswith("Sorry"),
-            "has_specific_details": any(
-                keyword in response_lower
-                for keyword in self.color_keywords
-                + self.object_keywords
-                + self.people_keywords
-            ),
+            "drinking",
+        }
+        self.text_keywords = {"text", "letter", "word"}
+        self.scene_keywords = {"indoor", "outdoor", "street", "park", "room"}
+        self.english_indicators = {
+            "the",
+            "and",
+            "is",
+            "in",
+            "it",
+            "you",
+            "that",
+            "he",
+            "was",
+            "for",
+            "on",
+            "are",
+            "with",
+            "as",
+            "his",
+            "they",
+            "be",
+            "at",
+            "one",
+            "have",
+            "this",
+            "from",
+            "or",
+            "had",
+            "by",
+            "hot",
+            "but",
+            "some",
+            "what",
+            "there",
+            "we",
+            "can",
+            "out",
+            "other",
+            "were",
+            "all",
+            "your",
+            "when",
+            "up",
+            "use",
+            "word",
+            "how",
+            "said",
+            "each",
+            "which",
+            "she",
+            "do",
+            "their",
+            "time",
+            "if",
+            "will",
+            "way",
+            "about",
+            "many",
+            "then",
+            "them",
+            "would",
+            "write",
+            "like",
+            "so",
+            "these",
+            "her",
+            "long",
+            "make",
+            "thing",
+            "see",
+            "him",
+            "two",
+            "has",
+            "look",
+            "more",
+            "day",
+            "could",
+            "go",
+            "come",
+            "did",
+            "my",
+            "sound",
+            "no",
+            "most",
+            "number",
+            "who",
+            "over",
+            "know",
+            "water",
+            "than",
+            "call",
+            "first",
+            "may",
+            "down",
+            "side",
+            "been",
+            "now",
+            "find",
         }
 
-    def calculate_quality_score(self, content_metrics: Dict[str, Any]) -> float:
-        """Calcula una puntuación de calidad basada en las métricas de contenido"""
-        score = 0.0
+        # Números del 0 al 20
+        self.number_words = {
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine",
+            "ten",
+            "eleven",
+            "twelve",
+            "thirteen",
+            "fourteen",
+            "fifteen",
+            "sixteen",
+            "seventeen",
+            "eighteen",
+            "nineteen",
+            "twenty",
+        }
 
-        # Puntuación base por longitud apropiada (20-200 palabras es ideal)
-        word_count = content_metrics["word_count"]
-        if 20 <= word_count <= 200:
-            score += 2.0
-        elif 10 <= word_count < 20:
-            score += 1.0
-        elif word_count > 200:
-            score += 1.5
-
-        # Bonificaciones por características específicas
-        if content_metrics["has_detailed_description"]:
-            score += 2.0
-        if content_metrics["well_structured"]:
-            score += 2.0
-        if content_metrics["uses_english"]:
-            score += 1.5
-        if content_metrics["has_specific_details"]:
-            score += 1.5
-
-        # Bonificaciones por mencionar diferentes tipos de contenido
-        content_variety = sum(
-            [
-                content_metrics["mentions_colors"],
-                content_metrics["mentions_objects"],
-                content_metrics["mentions_people"],
-                content_metrics["mentions_text"],
-                content_metrics["mentions_actions"],
-            ]
-        )
-        score += content_variety * 0.5
-
-        return min(score, 10.0)  # Máximo 10 puntos
-
-    def calculate_performance_score(
-        self, execution_time: float, success: bool
-    ) -> float:
-        """Calcula una puntuación de rendimiento más granular"""
-        if not success:
-            return 0.0
-
-        # Puntuación base según tiempo de ejecución con umbrales más específicos
-        if execution_time <= 3:
-            return 10.0  # Excelente: ≤ 3 segundos
-        elif execution_time <= 5:
-            return 9.5  # Muy bueno: 3-5 segundos
-        elif execution_time <= 10:
-            return 9.0  # Bueno: 5-10 segundos
-        elif execution_time <= 15:
-            return 8.0  # Aceptable: 10-15 segundos
-        elif execution_time <= 30:
-            return 7.0  # Regular: 15-30 segundos
-        elif execution_time <= 60:
-            return 5.0  # Lento: 30-60 segundos
-        elif execution_time <= 120:
-            return 3.0  # Muy lento: 1-2 minutos
-        else:
-            return 1.0  # Extremadamente lento: > 2 minutos
-
-    def analyze_model_response(self, response: ModelResponse) -> ModelMetrics:
+    def analyze_model_response(
+        self, response: ModelResponse, itm_score: float = 0.0
+    ) -> ModelMetrics:
         """Analiza una respuesta individual del modelo"""
         if not response.success:
             return ModelMetrics(
@@ -289,27 +224,22 @@ class ModelMetricsAnalyzer:
                 uses_english=False,
                 well_structured=False,
                 has_specific_details=False,
+                itm_score=itm_score,
                 quality_score=0.0,
                 overall_score=0.0,
             )
 
         content_metrics = self.analyze_content_quality(response.response)
-        quality_score = self.calculate_quality_score(content_metrics)
+        quality_score = self.calculate_quality_score(content_metrics, itm_score)
         performance_score = self.calculate_performance_score(
             response.execution_time, response.success
         )
 
-        # Puntuación general adaptativa basada en la velocidad
-        # Si el modelo es muy rápido (< 10s), dar más peso al rendimiento
-        # Si es lento (> 30s), dar más peso a la calidad
         if response.execution_time < 10:
-            # Modelos rápidos: 50% calidad, 50% rendimiento
             overall_score = (quality_score * 0.5) + (performance_score * 0.5)
         elif response.execution_time > 60:
-            # Modelos lentos: 70% calidad, 30% rendimiento
             overall_score = (quality_score * 0.7) + (performance_score * 0.3)
         else:
-            # Velocidad normal: 60% calidad, 40% rendimiento
             overall_score = (quality_score * 0.6) + (performance_score * 0.4)
 
         return ModelMetrics(
@@ -329,19 +259,95 @@ class ModelMetricsAnalyzer:
             uses_english=content_metrics["uses_english"],
             well_structured=content_metrics["well_structured"],
             has_specific_details=content_metrics["has_specific_details"],
+            itm_score=itm_score,
             quality_score=quality_score,
             overall_score=overall_score,
         )
 
-    def compare_models(self, responses: List[ModelResponse]) -> ComparisonMetrics:
-        """Compara múltiples modelos y determina el ganador"""
+    def analyze_content_quality(self, response: str) -> Dict[str, Any]:
+        """Analiza la calidad del contenido de la respuesta"""
+        response_lower = response.lower()
+        words = response_lower.split()
+        sentences = response.split(".")
+
+        return {
+            "response_length": len(response),
+            "word_count": len(words),
+            "sentence_count": len([s for s in sentences if s.strip()]),
+            "mentions_colors": any(c in response_lower for c in self.color_keywords),
+            "mentions_objects": any(o in response_lower for o in self.object_keywords),
+            "mentions_people": any(p in response_lower for p in self.people_keywords),
+            "mentions_text": any(t in response_lower for t in self.text_keywords),
+            "mentions_actions": any(a in response_lower for a in self.action_keywords),
+            "uses_english": sum(
+                1 for w in self.english_indicators if w in response_lower
+            )
+            > 3,
+            "has_detailed_description": len(words) > 20,
+            "well_structured": len(sentences) > 2 and not response.startswith("Sorry"),
+            "has_specific_details": any(
+                kw in response_lower
+                for kw in self.color_keywords
+                | self.object_keywords
+                | self.people_keywords
+            ),
+        }
+
+    def calculate_quality_score(
+        self, content_metrics: Dict[str, Any], itm_score: float = 0.0
+    ) -> float:
+        """Calcula una puntuación híbrida: texto + ITM score"""
+        score = 0.0
+
+        # ---- Texto ----
+        word_count = content_metrics["word_count"]
+        if 20 <= word_count <= 200:
+            score += 2.0
+        elif 10 <= word_count < 20:
+            score += 1.0
+        elif word_count > 200:
+            score += 1.5
+
+        if content_metrics["has_detailed_description"]:
+            score += 2.0
+        if content_metrics["well_structured"]:
+            score += 2.0
+        if content_metrics["uses_english"]:
+            score += 1.5
+        if content_metrics["has_specific_details"]:
+            score += 1.5
+
+        content_variety = sum(
+            [
+                content_metrics["mentions_colors"],
+                content_metrics["mentions_objects"],
+                content_metrics["mentions_people"],
+                content_metrics["mentions_text"],
+                content_metrics["mentions_actions"],
+            ]
+        )
+        score += content_variety * 0.5
+
+        # ---- Multimodal (ITM) ----
+        itm_component = itm_score * 10.0  # normalizar [0–1] → [0–10]
+
+        # Combinar: 70% texto + 30% itm
+        final_score = (score * 0.7) + (itm_component * 0.3)
+
+        return min(final_score, 10.0)
+
+    def compare_models_with_itm(
+        self, responses: List[ModelResponse], itm_scores: Dict[str, float]
+    ) -> ComparisonMetrics:
+        """Compara múltiples modelos integrando ITM scores en el análisis"""
         if not responses:
             raise ValueError("No hay respuestas para comparar")
 
-        # Analizar cada modelo
+        # Analizar cada modelo con su ITM score correspondiente
         model_metrics = {}
         for response in responses:
-            metrics = self.analyze_model_response(response)
+            itm_score = itm_scores.get(response.model_name, 0.0)
+            metrics = self.analyze_model_response(response, itm_score=itm_score)
             model_metrics[response.model_name] = metrics
 
         # Encontrar el mejor en cada categoría
@@ -388,6 +394,30 @@ class ModelMetricsAnalyzer:
             metrics_by_model=model_metrics,
         )
 
+    def calculate_performance_score(
+        self, execution_time: float, success: bool
+    ) -> float:
+        """Calcula una puntuación de rendimiento"""
+        if not success:
+            return 0.0
+
+        if execution_time <= 3:
+            return 10.0
+        elif execution_time <= 5:
+            return 9.5
+        elif execution_time <= 10:
+            return 9.0
+        elif execution_time <= 15:
+            return 8.0
+        elif execution_time <= 30:
+            return 7.0
+        elif execution_time <= 60:
+            return 5.0
+        elif execution_time <= 120:
+            return 3.0
+        else:
+            return 1.0
+
     def get_recommendation(self, comparison: ComparisonMetrics) -> str:
         """Genera una recomendación basada en las métricas"""
         winner_metrics = comparison.metrics_by_model[comparison.winner]
@@ -400,7 +430,3 @@ class ModelMetricsAnalyzer:
             return f"🥈 {comparison.winner} mostró un buen rendimiento general. Resultados satisfactorios."
         else:
             return f"🥇 {comparison.winner} mostró un excelente rendimiento. Resultados de alta calidad."
-
-
-# Instancia global del analizador
-metrics_analyzer = ModelMetricsAnalyzer()

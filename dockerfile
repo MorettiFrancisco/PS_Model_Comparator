@@ -1,8 +1,13 @@
-FROM python:3.11
+FROM python:3.11-slim
 
 EXPOSE 8000
 
 WORKDIR /app
+
+# Install system dependencies that might be needed
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
