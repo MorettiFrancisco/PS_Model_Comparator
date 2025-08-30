@@ -241,7 +241,6 @@
               <div class="multimodal-metric">
                 <div class="metric-header">
                   <span class="metric-label">🔗 ITM Score</span>
-                  <span class="metric-description">Image-Text Matching</span>
                 </div>
                 <div class="metric-details">
                   <span class="metric-value detailed">
