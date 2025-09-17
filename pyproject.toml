@@ -18,4 +18,5 @@ dependencies = [
     "numpy>=2.3.2",
     "opencv-python",
     "ultralytics",
+    "pytest>=8.4.2",
 ]
