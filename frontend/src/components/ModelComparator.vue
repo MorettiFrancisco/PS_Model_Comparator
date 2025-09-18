@@ -219,36 +219,20 @@
             <!-- Métricas Multimodales -->
             <div class="multimodal-metrics">
               <h4 class="metrics-title">🔍 Análisis Multimodal</h4>
-              <div class="multimodal-grid">
-                <div class="multimodal-metric">
-                  <span class="metric-label">ITM Score:</span>
-                  <span
-                    class="metric-value"
-                    :class="
-                      getItmScoreClass(
-                        getModelMetrics(result.model_name).itm_score
-                      )
-                    "
-                  >
-                    {{
-                      getModelMetrics(result.model_name).itm_score.toFixed(3)
-                    }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Solo ITM Score para multimodal -->
               <div class="multimodal-metric">
-                <div class="metric-header">
-                  <span class="metric-label">🔗 ITM Score</span>
-                </div>
-                <div class="metric-details">
-                  <span class="metric-value detailed">
-                    {{
-                      getModelMetrics(result.model_name).itm_score.toFixed(3)
-                    }}
-                  </span>
-                </div>
+                <span class="metric-label">🔗 ITM Score</span>
+                <span
+                  class="metric-value"
+                  :class="
+                    getItmScoreClass(
+                      getModelMetrics(result.model_name).itm_score
+                    )
+                  "
+                >
+                  {{
+                    getModelMetrics(result.model_name).itm_score.toFixed(3)
+                  }}
+                </span>
               </div>
             </div>
           </div>
