@@ -296,7 +296,7 @@ class ModelMetricsAnalyzer:
     def calculate_quality_score(
         self, content_metrics: Dict[str, Any], itm_score: float = 0.0
     ) -> float:
-        """Calcula una puntuación híbrida: texto + ITM score"""
+        """Calcula una puntuación híbrida: ITM score + texto"""
         score = 0.0
 
         # ---- Texto ----
@@ -331,8 +331,8 @@ class ModelMetricsAnalyzer:
         # ---- Multimodal (ITM) ----
         itm_component = itm_score * 10.0  # normalizar [0–1] → [0–10]
 
-        # Combinar: 70% texto + 30% itm
-        final_score = (score * 0.7) + (itm_component * 0.3)
+        # Combinar: 70% ITM + 30% texto
+        final_score = (itm_component * 0.7) + (score * 0.3)
 
         return min(final_score, 10.0)
 
